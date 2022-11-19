@@ -1,3 +1,4 @@
+; массив из 30 чисел, найти (max-min)/max
 .model small
 .stack 100h
 
