@@ -1,10 +1,11 @@
 .model	small
+.stack 100h
 
-.data					;Сегмент данных. Храним координаты тела змейки
+.data				
 
 snake	dw 0101h
 		dw 0102h
-		dw 0103h
+		dw 0103h            ; координаты
 		dw 0104h
 		dw 0105h
 		dw 7CCh dup('?')
@@ -21,30 +22,19 @@ MoveLeft   equ 1Eh	         ; A key
 MoveRight  equ 20h	         ; D key
 Exit       equ 01h          ; ESC key
 start_position dw 0  		; позиция символа на экране
-							; строка " 00:00 " с атрибутом символа 1Fh (белый на синем фоне)
+					
 output_line db ' ',1Fh
 
 output_line_size equ 14
 
-.stack 100h
-
 .code
-;В начале сегмента кода будем размещать процедуры
 delay proc
 
     push cx
 	mov cx, 0
-	mov dx, delay_time        ; пауза в микросекундач
+	mov dx, delay_time        ; пауза
     mov ah, 86h 
 	int 15h     			; функция задержки
-	mov cx, 0
-	mov dx, delay_time        ; пауза в микросекундач
-    mov ah, 86h
-	int 15h
-	mov cx, 0
-	mov dx, delay_time       ; пауза в микросекундач
-    mov ah, 86h
-	int 15h
 	pop cx
 	ret
 delay endp
@@ -95,12 +85,12 @@ game_over endp
 key_press proc
 	mov ax, 0100h
 	int 16h						;проверка наличия символа в буфере
-	jz buff_en 					;Без нажатия выходим
+	jz buff_en 					;если нет нажатия - выход
 	xor ah, ah
 	int 16h
 	cmp ah, MoveDown
 	jne up
-	cmp cx,0FF00h		   		;Сравниваем чтобы не пойти на себя
+	cmp cx,0FF00h		   		;сравниваем чтобы не пойти на себя
 	je buff_en
 	mov cx,0100h
 	jmp en
@@ -163,7 +153,7 @@ en:
 	ret
 key_press endp
 
-add_food proc
+add_apple proc
 	push ax
 	push bx
 	push cx
@@ -175,7 +165,6 @@ sc:
 	
 	xor ax, ax
 	mov al, dl
-	;push ax 
 	mov dl, 13h
 	div dl 
 	
@@ -212,66 +201,58 @@ sc2:
 	
 	push cx 
 	mov cx, 1
-	mov bl, 01000001b
-	mov ax,0924h 
+	mov bl, 01110001b
+	mov ax,09A9h  
 	int 10h
-	pop cx
-	
+	pop cx	
 	pop dx
 	pop cx
 	pop bx
 	pop ax
 	
 	ret
-add_food endp
+add_apple endp
 
 start:
 	mov ax,@data
 	mov ds,ax
 	mov es,ax
 
-
 	mov ax,0003h
-	int	10h 			;Очищаем игровое поле
+	int	10h 			;очистка консоли
 	
-
-	;рисуем поле вверх
 	xor bx, bx
 	mov ax, 0B800h
 	mov es, ax
 	
-	mov dh, 00100000b
+	mov dh, 01000000b
 	mov dl, 0B2h
 	
 	mov cx, 16h
-up_:	
+up_:	                                       ; рисование верхней границы
 	mov word ptr es:[bx],dx
 	add bx, 2
 	loop up_
-	
+		
 	mov cx, 10h
 draw:
 
-	add bx, 116                            ;рисуем левый борт
+	add bx, 116                            ; боковые границы
 	mov word ptr es:[bx],dx
-	
 	push cx								 	;запоминаем сколько еще нпдо рисовать
 	
-	mov dh, 01000100b						;устонавливаем маску на цветной фон
+	mov dh, 01110001b						;устонавливаем маску на цветной фон
 	mov dl, 020h
 	mov cx, 14h
 	
 color:
-
 	add bx, 2
-	mov word ptr es:[bx],dx
-	
+	mov word ptr es:[bx],dx	
 	loop color	
-
-	
+		
 	pop cx
 	
-	mov dh, 00100000b
+	mov dh, 01000000b
 	mov dl, 0B2h
 	
 	add bx, 2
@@ -293,7 +274,7 @@ color:
 	mov dl, 0B2h
 	mov cx, 13h
 	
-down_:	
+down_:	                        ;нижняя граница
 	mov word ptr es:[bx],dx
 	add bx, 2
 	loop down_
@@ -303,8 +284,6 @@ down_:
 	
 	mov word ptr es:[bx],dx
 	add bx, 2	
-	
-
 
 	xor ax, ax
 	xor bx, bx
@@ -316,19 +295,17 @@ down_:
 	int 10h	
 
 	mov cx,5
-	mov bl, 01000010b
+	mov bl, 01110001b
 	mov ax,092Ah 
-	int 10h 			;Выводим змейку из 5 символов "*"
-
-		
-
+	int 10h 			;Выводим змейку
+	
 	mov si,8			;Индекс координаты символа головы
 	xor di,di			;Индекс координаты символа хвоста
 	mov cx,0001h		;Регистр cx используем для управления головой. При сложении от значения cx будет изменяться координата x или y
 
 	mov bl,7h
-    call add_food
-main:					;Основной цикл
+    call add_apple
+main:			
 	call delay
 	call key_press
 	
@@ -343,14 +320,14 @@ main:					;Основной цикл
 	int 10h 			;Вызываем прерывание. Перемещаем курсор
 	
 	mov ax,0800h
-    int 10h                     ;Читает символ 
+    int 10h                     ;Читаес символ 
 	call check_board
     call game_over
 	mov ax, 0800h
     int 10h  
-    cmp al, 24h
+    cmp al, 0A9h
 	jne next
-	call add_food
+	call add_apple
 	add score, 1
 	cmp score, 10
 	je next_score
@@ -382,8 +359,7 @@ next_score:
 	
 	jmp back
 	
-next_:
-	
+next_:	
 		mov cx, output_line_size        ; число байт в строке - в СХ
         push 0B800h
         pop es                          ; адрес в видеопамяти
@@ -391,14 +367,12 @@ next_:
         mov si,offset output_line       ; адрес строки в DS:SI
         cld
         rep movsb   
-		
-		
-next:
-	
+				
+next:	
 	push cx 
 	
 	mov cx, 1
-	mov bl, 01000010b
+	mov bl, 01110001b
 	mov ax, 092Ah 
 	int 10h 	
 	
